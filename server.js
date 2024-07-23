@@ -177,6 +177,61 @@ app.get("/api/data", authenticate, (req, res) => {
     });
 });
 
+// Authenticated POST API routes
+
+app.post("/db-save", authenticate, async (req, res) => {
+  const { customer_name, dob, monthly_income } = req.body;
+
+  if (!customer_name || !dob || !monthly_income) {
+    return res.status(400).json({ message: "All parameters are required" });
+  }
+
+  const age = calculateAge(dob);
+  if (age <= 15) {
+    return res.status(400).json({ message: "Age must be above 15" });
+  }
+
+  const rateLimitCheck = checkRateLimit(customer_name);
+  if (rateLimitCheck.exceeded) {
+    return res.status(429).json({ message: rateLimitCheck.message });
+  }
+
+  try {
+    const newCustomer = new Customer({ customer_name, dob, monthly_income });
+    await newCustomer.save();
+    res.status(201).json(newCustomer);
+  } catch (error) {
+    res.status(500).json({ message: "Error saving data" });
+  }
+});
+
+app.post("/time-based-api", authenticate, async (req, res) => {
+  const { customer_name, dob, monthly_income } = req.body;
+  const now = moment();
+
+  if (!customer_name || !dob || !monthly_income) {
+    return res.status(400).json({ message: "All parameters are required" });
+  }
+
+  if (now.day() === 1) {
+    return res
+      .status(403)
+      .json({ message: "Please don't use this API on Monday" });
+  }
+
+  if (now.hour() >= 8 && now.hour() < 15) {
+    return res.status(403).json({ message: "Please try after 3pm" });
+  }
+
+  try {
+    const newCustomer = new Customer({ customer_name, dob, monthly_income });
+    await newCustomer.save();
+    res.status(201).json(newCustomer);
+  } catch (error) {
+    res.status(500).json({ message: "Error saving data" });
+  }
+});
+
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
